@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/paragao01/web-page-deploy.git
+    repoURL: https://github.com/paragao01/devops4devs.git
     path: k8s
     targetRevision: HEAD
   destination:
