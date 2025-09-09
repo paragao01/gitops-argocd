@@ -17,8 +17,11 @@ O fluxo de implantação é o seguinte:
 Antes de iniciar, certifique-se de que as seguintes ferramentas estejam instaladas e configuradas:
 
 *   **Docker:** Para execução dos contêineres do cluster.
+    *   *Instalação:* [https://docs.docker.com/engine/install/](https://docs.docker.com/engine/install/)
 *   **kubectl:** A ferramenta de linha de comando para interagir com o cluster Kubernetes.
+    *   *Instalação:* [https://kubernetes.io/docs/tasks/tools/install-kubectl/](https://kubernetes.io/docs/tasks/tools/install-kubectl/)
 *   **k3d:** Uma ferramenta leve para criar clusters k3s (distribuição Kubernetes) dentro do Docker.
+    *   *Instalação:* [https://k3d.io/#installation](https://k3d.io/#installation)
 
 ## 2. Configuração do Cluster Kubernetes Local
 
