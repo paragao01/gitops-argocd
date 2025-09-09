@@ -2,42 +2,42 @@
 
 ## Visão Geral
 
-Este documento descreve o processo padronizado para configurar um ambiente de desenvolvimento local em um cluster Kubernetes. A abordagem utiliza a metodologia GitOps, com o Argo CD como ferramenta principal para garantir que o estado do cluster espelhe continuamente o estado definido em um repositório Git.
+Este documento descreve o processo padronizado para configurar um ambiente de desenvolvimento local em um cluster Kubernetes, utilizando uma abordagem GitOps auto-contida. Neste modelo, o próprio repositório contém tanto a configuração do Argo CD quanto os manifestos da aplicação a ser implantada.
+
+O Argo CD é configurado para monitorar seu próprio repositório Git, aplicando os manifestos da aplicação `reviewvideo` que se encontram no diretório `k8s-webpage/`.
 
 O fluxo de implantação é o seguinte:
-1.  Criação de um cluster Kubernetes local.
+1.  Criação de um cluster Kubernetes local com `k3d`, incluindo o mapeamento de porta necessário.
 2.  Instalação do Argo CD no cluster.
-3.  Implantação de uma aplicação de exemplo (`webpage`) gerenciada pelo Argo CD, que por sua vez busca suas configurações de um repositório Git externo.
+3.  Configuração do Argo CD para se conectar a este repositório.
+4.  Implantação da aplicação `reviewvideo` (uma aplicação .NET com um banco de dados PostgreSQL) gerenciada pelo Argo CD.
 
 ## 1. Pré-requisitos
 
-Antes de iniciar, certifique-se de que as seguintes ferramentas estejam instaladas e configuradas em sua máquina local:
+Antes de iniciar, certifique-se de que as seguintes ferramentas estejam instaladas e configuradas:
 
 *   **Docker:** Para execução dos contêineres do cluster.
 *   **kubectl:** A ferramenta de linha de comando para interagir com o cluster Kubernetes.
-*   **k3d:** Uma ferramenta leve para criar clusters k3s (uma distribuição Kubernetes certificada) dentro do Docker. É ideal para desenvolvimento local.
+*   **k3d:** Uma ferramenta leve para criar clusters k3s (distribuição Kubernetes) dentro do Docker.
 
 ## 2. Configuração do Cluster Kubernetes Local
 
-Para um ambiente rápido e isolado, usaremos o `k3d` para criar o cluster.
+Usaremos o `k3d` para criar o cluster. É crucial mapear a porta da aplicação `reviewvideo` do cluster para a sua máquina local durante a criação.
 
 **Comando para Criação do Cluster:**
 
-Execute o seguinte comando para criar um novo cluster chamado `meucluster`:
-
 ```bash
-k3d cluster create meucluster
+# O argumento "-p 30000:30000@loadbalancer" expõe o NodePort da nossa aplicação na sua máquina local.
+k3d cluster create meucluster -p "30000:30000@loadbalancer"
 ```
-
-Este comando provisionará um cluster Kubernetes simples, pronto para receber nossas aplicações.
 
 ## 3. Instalação e Configuração do Argo CD
 
-O Argo CD será o núcleo de nossa estratégia GitOps.
+O Argo CD será o núcleo da nossa estratégia GitOps.
 
 ### 3.1. Instalação do Argo CD
 
-O arquivo `install.yaml` contém todos os manifestos necessários para a instalação do Argo CD.
+O arquivo `install.yaml` contém todos os manifestos necessários para a instalação.
 
 Primeiro, crie o namespace onde o Argo CD será instalado:
 
@@ -51,68 +51,70 @@ Em seguida, aplique o manifesto de instalação:
 kubectl apply -n argocd -f install.yaml
 ```
 
-Este passo implantará todos os componentes do Argo CD, incluindo a UI, o controller e os CRDs (Custom Resource Definitions).
-
 ### 3.2. Acesso à Interface do Argo CD
 
-Para acessar a interface de usuário do Argo CD, você pode expor o serviço `argocd-server` usando `port-forward`.
-
-Execute o seguinte comando em um terminal separado:
+Para acessar a interface de usuário do Argo CD, use `port-forward`. Execute em um terminal separado:
 
 ```bash
 kubectl port-forward svc/argocd-server -n argocd 8080:443
 ```
 
-Agora, acesse a UI em seu navegador: **https://localhost:8080**
+Acesse a UI em seu navegador: **https://localhost:8080**
 
 ### 3.3. Login no Argo CD
 
-O nome de usuário padrão é `admin`. Para obter a senha inicial, execute o comando abaixo:
+O nome de usuário padrão é `admin`. Para obter a senha inicial, execute:
 
 ```bash
 kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
 ```
 
-## 4. Implantação da Aplicação (App of Apps)
+## 4. Implantação da Aplicação `reviewvideo`
 
-Com o Argo CD em execução, o próximo passo é instruí-lo a monitorar nosso repositório de aplicação. O arquivo `app-argocd.yaml` define uma `Application` do Argo CD que aponta para um repositório Git externo.
+Com o Argo CD em execução, vamos instruí-lo a monitorar este repositório e implantar a aplicação.
 
-**Aplique o Manifesto da Aplicação:**
+### 4.1. Atualize a URL do Repositório
+
+O arquivo `app-argocd.yaml` define qual repositório o Argo CD deve observar.
+
+**AÇÃO NECESSÁRIA:** Antes de continuar, abra o arquivo `app-argocd.yaml` e **altere o valor de `spec.source.repoURL`** para a URL do *seu* repositório Git (o repositório que você está usando para este projeto).
+
+### 4.2. Aplique o Manifesto da Aplicação
+
+Após atualizar a URL, aplique o manifesto:
 
 ```bash
 kubectl apply -f app-argocd.yaml
 ```
 
-Após aplicar este manifesto, o Argo CD irá:
-1.  Ler a definição da aplicação `webpage`.
-2.  Conectar-se ao repositório `https://github.com/paragao01/devops4devs.git`.
-3.  Aplicar os manifestos localizados no diretório `k8s/` do repositório.
-4.  Manter a aplicação sincronizada com o estado definido no Git.
+O Argo CD irá agora sincronizar e implantar a aplicação `reviewvideo` e seu banco de dados PostgreSQL, conforme definido no diretório `k8s-webpage/`.
 
-## 5. Verificação
+## 5. A Aplicação: `reviewvideo`
 
-Você pode verificar o status da implantação através da UI do Argo CD ou via linha de comando.
+A aplicação implantada consiste em dois componentes principais:
+*   **PostgreSQL:** Um banco de dados para a aplicação.
+*   **ReviewVideo:** Uma aplicação .NET que se conecta ao banco de dados.
 
-**Verificar Pods:**
+## 6. Verificação e Acesso
 
-Liste todos os pods no namespace `argocd` para ver os componentes do Argo CD e da nova aplicação `webpage` (que pode ter sido implantada neste ou em outro namespace, dependendo da definição no repositório Git).
+### 6.1. Verificação no Cluster
+
+Você pode verificar o status da implantação via UI do Argo CD ou via linha de comando. Os pods devem estar no estado `Running` no namespace `argocd`.
 
 ```bash
 kubectl get pods -n argocd
 ```
 
-Na UI do Argo CD, você verá um card para a aplicação `webpage` e poderá inspecionar seu status de sincronização, saúde e todos os recursos Kubernetes associados.
+### 6.2. Acesso à Aplicação
 
-## 6. Limpeza do Ambiente (Teardown)
+Graças ao mapeamento de porta que fizemos na criação do cluster, a aplicação `reviewvideo` está diretamente acessível em seu navegador:
 
-Para remover completamente o ambiente de desenvolvimento, siga os passos abaixo.
+**URL:** [http://localhost:30000](http://localhost:30000)
 
-**1. Deletar o Cluster Kubernetes:**
+## 7. Limpeza do Ambiente (Teardown)
 
-O comando a seguir irá destruir o cluster `meucluster` e todos os recursos dentro dele.
+Para remover completamente o ambiente de desenvolvimento, simplesmente delete o cluster `k3d`.
 
 ```bash
 k3d cluster delete meucluster
 ```
-
-Este é o método mais limpo e rápido para resetar o ambiente.

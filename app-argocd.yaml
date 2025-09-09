@@ -1,13 +1,14 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: webpage
+  name: reviewvideo-app
   namespace: argocd
 spec:
   project: default
   source:
-    repoURL: https://github.com/paragao01/devops4devs.git
-    path: k8s
+    # IMPORTANTE: Altere para a URL do seu repositório Git
+    repoURL: https://github.com/paragao01/gitops-argocd.git
+    path: k8s-webpage
     targetRevision: HEAD
   destination:
     namespace: argocd
